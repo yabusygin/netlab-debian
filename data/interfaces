@@ -1,0 +1,7 @@
+allow-auto lo
+iface lo inet loopback
+
+source-directory interfaces.d
+
+allow-auto ens3
+iface ens3 inet manual

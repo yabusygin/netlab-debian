@@ -1,0 +1,313 @@
+- name: Provision
+  hosts: default
+  tasks:
+    - name: Install the required packages
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - dnsutils
+          - emacs
+          - ettercap-text-only
+          - freeradius-utils
+          - ftp
+          - git
+          - gnupg
+          - ifupdown
+          - iperf3
+          - iputils-arping
+          - mtr
+          - nano
+          - net-tools
+          - nmap
+          - python3
+          - python3-pip
+          - python3-virtualenv
+          - rsync
+          - sudo
+          - tcpdump
+          - tftp
+          - vim
+          - wget
+          - wpasupplicant
+        state: present
+        update_cache: true
+
+  # Install Docker
+
+    - name: Install Docker
+      ansible.builtin.import_role:
+        name: yabusygin.docker
+      vars:
+        docker_ansible_dependencies_install: false
+
+    - name: Install compatibility wrapper for Docker Compose standalone 
+      ansible.builtin.copy:
+        src: data/docker-compose
+        dest: /usr/local/bin/docker-compose
+        mode: u=rwx,g=rx,o=rx
+
+    # Configure SSH client and server
+
+    - name: Permit root login via SSH
+      ansible.builtin.copy:
+        src: data/ssh/sshd_config
+        dest: /etc/ssh/sshd_config.d/root-login.conf
+        mode: u=rw,g=r,o=r
+
+    - name: Set SSH client configuration
+      ansible.builtin.copy:
+        src: data/ssh/ssh_config
+        dest:  /root/.ssh/config
+        mode: u=rw,g=r,o=r
+
+    # Configure IEEE 802.1X supplicant
+
+    - name: Set IEEE 802.1X supplicant configuration
+      ansible.builtin.copy:
+        src: data/wpa_supplicant.conf
+        dest: /etc/wpa_supplicant.conf
+        mode: u=rw,g=r,o=r
+
+    - name: Disable IEEE 802.1X supplicant service
+      ansible.builtin.systemd_service:
+        name: wpa_supplicant.service
+        enabled: false
+
+    # Install SNMP agent and applications
+
+    - name: Enable installation of non-free packages
+      ansible.builtin.apt_repository:
+        repo: "deb http://deb.debian.org/debian bullseye non-free"
+        state: present
+        filename: non-free
+
+    - name: SNMP agent, applications and MIBs
+      ansible.builtin.apt:
+        name:
+          - snmpd
+          - snmp
+          - snmp-mibs-downloader
+        state: present
+
+    - name: Set common SNMP configuration
+      ansible.builtin.copy:
+        src: data/net-snmp/snmp.conf
+        dest: /etc/snmp/snmp.conf
+        mode: u=rw,g=r,o=r
+
+    - name: Set SNMP agent configuration
+      ansible.builtin.copy:
+        src: data/net-snmp/snmpd.conf
+        dest: /etc/snmp/snmpd.conf
+        mode: u=rw,g=r,o=r
+
+    - name: Disable SNMP agent service
+      ansible.builtin.systemd_service:
+        name: snmpd.service
+        enabled: false
+
+    # Install Syslog collector service
+
+    - name: Install Syslog collector service
+      ansible.posix.synchronize:
+        src: services/syslog
+        dest: /srv
+        archive: false
+        recursive: true
+        rsync_opts:
+          - --exclude=.git
+          - --exclude=.gitignore
+
+    - name: Build container image for Syslog collector service
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --project-directory=/srv/syslog
+          - build
+
+    - name: Create compatibility symlink to Syslog collector service directory
+      ansible.builtin.file:
+        path: /etc/docker-rsyslog
+        state: link
+        src: /srv/syslog
+
+    # Install SNMP notification receiver service
+
+    - name: Install SNMP notification receiver service
+      ansible.posix.synchronize:
+        src: services/snmp-notifications
+        dest: /srv
+        archive: false
+        recursive: true
+        rsync_opts:
+          - --exclude=.git
+          - --exclude=.gitignore
+
+    - name: Build container image for SNMP notification receiver service
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --project-directory=/srv/snmp-notifications
+          - build
+
+    - name: Create compatibility symlink to SNMP notification receiver service directory
+      ansible.builtin.file:
+        path: /etc/docker-snmptrapd
+        state: link
+        src: /srv/snmp-notifications
+
+    # Install RADIUS service
+
+    - name: Install RADIUS service
+      ansible.posix.synchronize:
+        src: services/radius
+        dest: /srv
+        archive: false
+        recursive: true
+        rsync_opts:
+          - --exclude=.git
+          - --exclude=.gitignore
+
+    - name: Pull container image for RADIUS service
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --project-directory=/srv/radius
+          - pull
+
+    - name: Create compatibility symlink to RADIUS service directory
+      ansible.builtin.file:
+        path: /etc/docker-freeradius
+        state: link
+        src: /srv/radius
+
+    # Install DNS service
+
+    - name: Install DNS service
+      ansible.posix.synchronize:
+        src: services/dns
+        dest: /srv
+        archive: false
+        recursive: true
+        rsync_opts:
+          - --exclude=.git
+          - --exclude=.gitignore
+
+    - name: Build container image for DNS service
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --project-directory=/srv/dns
+          - build
+
+    - name: Create compatibility symlink to DNS service directory
+      ansible.builtin.file:
+        path: /etc/docker-dnsmasq
+        state: link
+        src: /srv/dns
+
+    # Install HTTP service
+
+    - name: Install HTTP service
+      ansible.posix.synchronize:
+        src: services/http
+        dest: /srv
+        archive: false
+        recursive: true
+        rsync_opts:
+          - --exclude=.git
+          - --exclude=.gitignore
+
+    - name: Build container image for HTTP service
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --project-directory=/srv/http
+          - build
+
+    - name: Create compatibility symlink to HTTP service directory
+      ansible.builtin.file:
+        path: /etc/docker-nginx
+        state: link
+        src: /srv/http
+
+    # Install TFTP service
+
+    - name: Install TFTP service
+      ansible.posix.synchronize:
+        src: services/tftp
+        dest: /srv
+        archive: false
+        recursive: true
+        rsync_opts:
+          - --exclude=.git
+          - --exclude=.gitignore
+
+    - name: Pull container image for TFTP service
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --project-directory=/srv/tftp
+          - pull
+
+    - name: Create compatibility symlink to TFTP service directory
+      ansible.builtin.file:
+        path: /etc/docker-tftpd
+        state: link
+        src: /srv/tftp
+
+    - name: Upload TFTP data
+      ansible.posix.synchronize:
+        src: "{{ item }}"
+        dest: /srv/tftp/data/
+        archive: false
+      loop: "{{ tftp_data | default([]) }}"
+
+    # Use manual networking configuration
+
+    - name: Disable systemd-networkd service
+      ansible.builtin.systemd_service:
+        name: systemd-networkd.service
+        enabled: false
+
+    - name: Disable systemd-resolved service
+      ansible.builtin.systemd_service:
+        name: systemd-resolved.service
+        enabled: false
+
+    - name: Enable ifupdown managed networking
+      ansible.builtin.systemd_service:
+        name: networking.service
+        enabled: true
+
+    - name: Force manual networking configuration
+      ansible.builtin.copy:
+        src: data/interfaces
+        dest: /etc/network/interfaces
+        mode: u=rw,g=r,o=r
+
+    - name: Force manual DNS client configuration
+      ansible.builtin.copy:
+        src: data/resolv.conf
+        dest: /etc/resolv.conf
+        mode: u=rw,g=r,o=r
+
+    # Miscellaneous configuration
+
+    - name: Disable exim Mail Transport Agent service
+      ansible.builtin.systemd_service:
+        name: exim4.service
+        enabled: false
+
+    - name: Remove provisioner's authorized SSH key
+      ansible.builtin.lineinfile:
+        path: /root/.ssh/authorized_keys
+        regexp: '\bpacker$'
+        state: absent

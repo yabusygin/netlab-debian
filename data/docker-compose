@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# A compatibility wrapper for the Docker Compose standalone.
+
+docker compose "${@}"
+exit ${?}

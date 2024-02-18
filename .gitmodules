@@ -1,0 +1,18 @@
+[submodule "services/tftp"]
+	path = services/tftp
+	url = https://github.com/yabusygin/netlab-tftp.git
+[submodule "services/syslog"]
+	path = services/syslog
+	url = https://github.com/yabusygin/netlab-syslog.git
+[submodule "services/snmp-notifications"]
+	path = services/snmp-notifications
+	url = https://github.com/yabusygin/netlab-snmp-notifications.git
+[submodule "services/radius"]
+	path = services/radius
+	url = https://github.com/yabusygin/netlab-radius.git
+[submodule "services/dns"]
+	path = services/dns
+	url = https://github.com/yabusygin/netlab-dns.git
+[submodule "services/http"]
+	path = services/http
+	url = https://github.com/yabusygin/netlab-http.git

@@ -1,0 +1,6 @@
+collections:
+  - name: ansible.posix
+    version: 1.5.4
+roles:
+  - name: yabusygin.docker
+    version: 4.0.6
